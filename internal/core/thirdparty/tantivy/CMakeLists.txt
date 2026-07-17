@@ -1,11 +1,13 @@
 set(TANTIVY_FEATURES_LIST "" CACHE STRING "List of Cargo features to enable")
 string(REPLACE ";" "," TANTIVY_FEATURES "${TANTIVY_FEATURES_LIST}")
 
+find_program(CARGO_EXECUTABLE NAMES cargo REQUIRED)
+
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CARGO_CMD cargo +1.89 build --verbose)
+    set(CARGO_CMD ${CARGO_EXECUTABLE} +1.89 build --verbose)
     set(TARGET_DIR "debug")
 else ()
-    set(CARGO_CMD cargo +1.89 build --release --verbose)
+    set(CARGO_CMD ${CARGO_EXECUTABLE} +1.89 build --release --verbose)
     set(TARGET_DIR "release")
 endif ()
 
@@ -23,24 +25,11 @@ set(TANTIVY_NAME "libtantivy_binding${CMAKE_STATIC_LIBRARY_SUFFIX}")
 set(LIB_FILE "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_DIR}/${TANTIVY_NAME}")
 set(LIB_HEADER_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/tantivy-binding/include")
 
-# In fact, cargo was already installed on our builder environment.
-# Below settings are used to suit for first local development.
-set(HOME_VAR $ENV{HOME})
-set(PATH_VAR $ENV{PATH})
-set(ENV{PATH} ${HOME_VAR}/.cargo/bin:${PATH_VAR})
-message($ENV{PATH})
-
-add_custom_command(OUTPUT ls_cargo
-        COMMENT "ls cargo"
-        COMMAND ls ${HOME_VAR}/.cargo/bin/
-        )
-add_custom_target(ls_cargo_target DEPENDS ls_cargo)
-
 add_custom_command(OUTPUT compile_tantivy
         COMMENT "Compiling tantivy binding"
         COMMAND TOKENIZER_PROTO=${TOKENIZER_PROTO} CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR} ${CARGO_CMD}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tantivy-binding)
-add_custom_target(tantivy_binding_target DEPENDS compile_tantivy ls_cargo_target)
+add_custom_target(tantivy_binding_target DEPENDS compile_tantivy)
 
 set(INSTALL_COMMAND
         cp ${LIB_HEADER_FOLDER}/tantivy-binding.h ${TANTIVY_INCLUDE_DIR}/ &&
