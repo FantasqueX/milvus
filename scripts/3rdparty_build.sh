@@ -126,8 +126,8 @@ unset DYLD_INSERT_LIBRARIES
 
 
 export CONAN_REVISIONS_ENABLED=1
-export CXXFLAGS="-Wno-error=address -Wno-error=deprecated-declarations"
-export CFLAGS="-Wno-error=address -Wno-error=deprecated-declarations"
+export CXXFLAGS="${CXXFLAGS:-} -Wno-error=address -Wno-error=deprecated-declarations"
+export CFLAGS="${CFLAGS:-} -Wno-error=address -Wno-error=deprecated-declarations"
 
 # Determine the Conan remote URL, using the environment variable if set, otherwise defaulting
 CONAN_ARTIFACTORY_URL="${CONAN_ARTIFACTORY_URL:-https://milvus01.jfrog.io/artifactory/api/conan/default-conan-local}"
@@ -154,7 +154,15 @@ case "${unameOut}" in
     fi
     echo "Running on ${OS_NAME}"
     export CPU_TARGET=avx
-    GCC_VERSION=`gcc -dumpversion`
+    # Conan 1 settings.yml records GCC compatibility versions (for example,
+    # "13"), not distro patch versions such as "13.3.0".
+    GCC_VERSION=$(gcc -dumpversion)
+    GCC_MAJOR=${GCC_VERSION%%.*}
+    if [[ ${GCC_MAJOR} =~ ^[0-9]+$ ]] && (( GCC_MAJOR >= 13 )); then
+      # RocksDB 6.29.5 uses the fixed-width integer types without including
+      # <cstdint>. GCC 13 no longer provides them through transitive includes.
+      export CXXFLAGS="${CXXFLAGS} -include cstdint"
+    fi
     if [[ `gcc -v 2>&1 | sed -n 's/.*\(--with-default-libstdcxx-abi\)=\(\w*\).*/\2/p'` == "gcc4" ]]; then
       "$CONAN" install ${CPP_SRC_DIR} --install-folder conan --build=missing -s build_type=${BUILD_TYPE} -s compiler.version=${GCC_VERSION} -r default-conan-local -u || { echo 'conan install failed'; exit 1; }
     else
